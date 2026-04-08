@@ -41,13 +41,55 @@ def run_command(args: list[str]) -> int:
     return result.returncode
 
 
-def choose_nodes_file() -> str:
-    candidates = sorted(ROOT.glob("*.nodes.json"))
-    default = candidates[0].name if candidates else ""
-    return prompt_text("节点 JSON 文件路径", default)
+def find_nodes_candidates() -> list[Path]:
+    search_dirs = []
+    cwd = Path.cwd().resolve()
+    if cwd not in search_dirs:
+        search_dirs.append(cwd)
+    if ROOT not in search_dirs:
+        search_dirs.append(ROOT)
+
+    seen: set[Path] = set()
+    candidates: list[Path] = []
+    for directory in search_dirs:
+        for path in sorted(directory.glob("*.nodes.json")):
+            resolved = path.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            candidates.append(resolved)
+    candidates.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+    return candidates
 
 
-def run_probe_flow() -> int:
+def choose_nodes_file(probe_output: str | None = None) -> str:
+    if probe_output:
+        candidate = Path(probe_output).expanduser()
+        if not candidate.is_absolute():
+            candidate = (Path.cwd() / candidate).resolve()
+        if candidate.exists():
+            return str(candidate)
+
+    candidates = find_nodes_candidates()
+    if candidates:
+        print("检测到以下节点 JSON 文件:")
+        for index, path in enumerate(candidates, start=1):
+            print(f"{index}. {path}")
+        print()
+
+        default = "1"
+        choice = prompt_text("选择文件编号或直接输入路径", default)
+        if choice.isdigit():
+            selected_index = int(choice) - 1
+            if 0 <= selected_index < len(candidates):
+                return str(candidates[selected_index])
+        if choice:
+            return choice
+
+    return prompt_text("节点 JSON 文件路径")
+
+
+def run_probe_flow() -> tuple[int, str | None]:
     default_output = f"{socket.gethostname()}.nodes.json"
     output_path = prompt_text("导出文件名", default_output)
     host_override = prompt_text("手工指定导出地址(留空自动识别)", "")
@@ -58,11 +100,11 @@ def run_probe_flow() -> int:
         command.extend(["--host", host_override])
     if non_interactive:
         command.append("--non-interactive")
-    return run_command(command)
+    return run_command(command), output_path
 
 
-def run_import_preview_and_apply() -> int:
-    input_path = choose_nodes_file()
+def run_import_preview_and_apply(probe_output: str | None = None) -> int:
+    input_path = choose_nodes_file(probe_output=probe_output)
     if not input_path:
         print("未提供 JSON 文件路径。", file=sys.stderr)
         return 1
@@ -117,7 +159,12 @@ def interactive_menu() -> int:
 
     choice = prompt_text("请选择", "1")
     if choice == "1":
-        return run_probe_flow()
+        probe_code, probe_output = run_probe_flow()
+        if probe_code != 0:
+            return probe_code
+        if prompt_yes_no("采集完成，是否现在继续导入到 Xboard", False):
+            return run_import_preview_and_apply(probe_output=probe_output)
+        return 0
     if choice == "2":
         return run_import_preview_and_apply()
     if choice == "3":
@@ -141,7 +188,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if args.mode == "probe":
-        return run_probe_flow()
+        probe_code, _ = run_probe_flow()
+        return probe_code
     if args.mode == "import":
         return run_import_preview_and_apply()
     return interactive_menu()
