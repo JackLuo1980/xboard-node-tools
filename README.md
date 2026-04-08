@@ -127,6 +127,7 @@ curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh 
 - `xboard_nodes.py`
   - 统一一键入口
   - 菜单式选择“导出 / 上传 / 创建新的”
+  - `创建新的` 会先检测本机是否有 `x-ui / 3x-ui`，有的话优先创建同类平行节点
 
 - `run.sh`
   - Shell 快捷入口
@@ -178,6 +179,7 @@ xboard-nodes
 - 如果安装时已经预置默认 Xboard 配置，这些信息会直接复用
 - 否则第一次填写后也可以保存为默认值，后面尽量少重复输入
 - 创建新的节点会直接跳过 `x-ui / 3x-ui` 检测，只要求输入协议和名称
+- 创建新的节点会先检测 `x-ui / 3x-ui`，有面板时优先复制现有入站为同类平行节点
 - 一键同步会直接“非交互导出 + 上传到默认 Xboard”
 
 ### 节点服务器上

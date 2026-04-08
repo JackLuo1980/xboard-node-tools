@@ -517,7 +517,7 @@ def choose_candidates_from_inbounds(
         if network_settings.get("security") == "reality":
             print(f"  Reality: {network_settings.get('reality_server_name') or network_settings.get('reality_dest')}")
         print("  说明: 保留原节点名称，自动新建一条不冲突的新节点。")
-        if prompt_yes_no("使用这条同名新节点", True):
+        if prompt_yes_no(f"是否基于这条 {candidate['protocol']} 入站创建同类节点并导入到 Xboard", True):
             chosen.append(candidate)
     return chosen
 
@@ -601,6 +601,7 @@ def main() -> int:
     if inbounds:
         print(f"检测到 {panel_name}，数据库: {db_path}")
         if args.non_interactive:
+            print("非交互模式下将自动复制所有可用入站为同名平行新节点。")
             for inbound in inbounds:
                 inbound["panel_name"] = panel_name
                 candidates.append(inbound_to_candidate(inbound, host))

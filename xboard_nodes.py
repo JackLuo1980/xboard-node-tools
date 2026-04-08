@@ -411,7 +411,7 @@ def interactive_menu() -> int:
             return run_upload_flow(default_json=export_path)
         return run_upload_flow()
     if choice == "3":
-        create_code, export_path = run_probe_flow(manual_only=True)
+        create_code, export_path = run_probe_flow(manual_only=False)
         if create_code != 0:
             return create_code
         if prompt_yes_no("创建完成，是否现在上传到 Xboard", False):
@@ -445,7 +445,7 @@ def main() -> int:
     if args.mode == "upload":
         return run_upload_flow()
     if args.mode == "create":
-        code, _ = run_probe_flow(manual_only=True)
+        code, _ = run_probe_flow(manual_only=False)
         return code
     if args.mode == "sync":
         return run_sync_flow()
