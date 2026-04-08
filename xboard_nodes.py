@@ -151,6 +151,37 @@ def choose_nodes_file(default_path: str | None = None) -> str:
     return prompt_text("节点 JSON 文件路径")
 
 
+def load_nodes_payload(path: str) -> dict[str, Any] | None:
+    candidate = Path(path).expanduser()
+    if not candidate.is_absolute():
+        candidate = (Path.cwd() / candidate).resolve()
+    if not candidate.exists():
+        return None
+    try:
+        return json.loads(candidate.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def payload_contains_xui_draft(path: str) -> bool:
+    payload = load_nodes_payload(path)
+    if not payload:
+        return False
+    for node in payload.get("nodes") or []:
+        source = node.get("source") or {}
+        if source.get("kind") == "panel-inbound-clone":
+            return True
+        tags = node.get("tags") or []
+        if any(tag in {"x-ui", "3x-ui"} for tag in tags):
+            return True
+    return False
+
+
+def notify_xui_draft(path: str) -> None:
+    tty_print("当前导出结果是 x-ui 迁移草稿，按当前规则不进入上传步骤。")
+    tty_print("请把它作为本地草稿保留，后续若需要正式上线，再整理成可用后端节点。")
+
+
 def run_probe_flow(manual_only: bool = False) -> tuple[int, str | None]:
     default_output = f"{socket.gethostname()}.nodes.json"
     output_path = prompt_text("导出文件名", default_output)
@@ -312,6 +343,11 @@ def run_upload_flow(default_json: str | None = None) -> int:
         print("未找到可上传的节点 JSON。", file=sys.stderr)
         return 1
 
+    if payload_contains_xui_draft(input_path):
+        print("当前 JSON 包含 x-ui 迁移草稿，按当前规则不自动上传到 Xboard。", file=sys.stderr)
+        print("请先把它作为本地草稿保留，或整理成真正的后端节点后再上传。", file=sys.stderr)
+        return 1
+
     input_file = Path(input_path).expanduser()
     if not input_file.is_absolute():
         input_file = (Path.cwd() / input_file).resolve()
@@ -399,6 +435,9 @@ def interactive_menu() -> int:
         export_code, export_path = run_probe_flow(manual_only=False)
         if export_code != 0:
             return export_code
+        if export_path and payload_contains_xui_draft(export_path):
+            notify_xui_draft(export_path)
+            return 0
         if prompt_yes_no("导出完成，是否现在上传到 Xboard", False):
             return run_upload_flow(default_json=export_path)
         return 0
@@ -414,6 +453,9 @@ def interactive_menu() -> int:
         create_code, export_path = run_probe_flow(manual_only=False)
         if create_code != 0:
             return create_code
+        if export_path and payload_contains_xui_draft(export_path):
+            notify_xui_draft(export_path)
+            return 0
         if prompt_yes_no("创建完成，是否现在上传到 Xboard", False):
             return run_upload_flow(default_json=export_path)
         return 0

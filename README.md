@@ -8,6 +8,7 @@
   - 保留原节点名称
   - 不复用原端口
   - 自动生成一条同名、不同端口的新节点 JSON
+  - 这类结果只作为迁移草稿，不自动上传到 Xboard
 - 没有 `x-ui / 3x-ui` 时：
   - 只问你协议和名称
   - 其余端口、UUID、密码、Reality 参数全部自动生成
@@ -105,7 +106,7 @@ curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh 
 - 逐条确认是否按“同名平行新节点”导出已有入站
 - 没有面板时只需选择协议和名称
 - 导出统一 JSON
-- 在 Xboard 服务器做 `dry-run`
+- 对于非 `x-ui` 的正式节点，在 Xboard 服务器做 `dry-run`
 - 确认后写入 `v2_server`
 - 默认加入 `vip1 / vip2 / vip3`
 
@@ -128,6 +129,7 @@ curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh 
   - 统一一键入口
   - 菜单式选择“导出 / 上传 / 创建新的”
   - `创建新的` 会先检测本机是否有 `x-ui / 3x-ui`，有的话优先创建同类平行节点
+  - `x-ui` 结果只保留为迁移草稿，不再自动上传到 Xboard
 
 - `run.sh`
   - Shell 快捷入口
@@ -174,6 +176,7 @@ xboard-nodes
 现在的默认交互是：
 
 - 导出完成后，会直接询问是否继续上传到 Xboard
+- 导出完成后，如果结果来自 `x-ui / 3x-ui`，会直接停在草稿阶段，不再进入上传
 - 上传时会自动优先发现当前目录最新的 `*.nodes.json`
 - 第一次上传会提示填写 Xboard SSH 和数据库信息
 - 如果安装时已经预置默认 Xboard 配置，这些信息会直接复用
@@ -189,12 +192,13 @@ xboard-nodes
 - 自动检测 `x-ui / 3x-ui`
 - 逐条确认是否使用同名平行新节点
 - 最后生成 `*.nodes.json`
-- 可直接继续上传到 Xboard
+- 如果是 `x-ui / 3x-ui` 草稿，不会继续上传到 Xboard
 
 选择 `3`：
 
-- 直接进入手工建节点模式
-- 适合空机或你想新建节点时使用
+- 先检测 `x-ui / 3x-ui`
+- 有面板时优先复制现有入站为同类平行节点
+- 没有面板时才进入手工建节点模式
 
 选择 `4`：
 
