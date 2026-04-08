@@ -107,5 +107,8 @@ echo "  xboard-nodes --mode create"
 if [[ "$AUTO_RUN" == "true" ]]; then
   echo
   echo "==> 自动启动 xboard-nodes --mode ${AUTO_MODE}"
-  exec "$BIN_LINK" --mode "$AUTO_MODE"
+  if [[ -r /dev/tty ]]; then
+    exec "$BIN_LINK" --mode "$AUTO_MODE" </dev/tty >/dev/tty 2>/dev/tty
+  fi
+  echo "未检测到可交互终端，跳过自动启动。"
 fi
