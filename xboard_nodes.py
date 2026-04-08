@@ -32,10 +32,32 @@ PROFILE_REQUIRED_FIELDS = [
     "groups",
 ]
 
+TTY_STREAM = None
+try:
+    TTY_STREAM = open("/dev/tty", "r+", encoding="utf-8", buffering=1)
+except OSError:
+    TTY_STREAM = None
+
+
+def tty_print(message: str = "") -> None:
+    stream = TTY_STREAM or sys.stdout
+    print(message, file=stream, flush=True)
+
+
+def tty_prompt(message: str) -> str:
+    stream = TTY_STREAM or sys.stdout
+    stream.write(message)
+    stream.flush()
+    input_stream = TTY_STREAM or sys.stdin
+    raw = input_stream.readline()
+    if raw == "":
+        raise EOFError("EOF when reading a line")
+    return raw.rstrip("\n")
+
 
 def prompt_text(message: str, default: str | None = None) -> str:
     suffix = f" [{default}]" if default else ""
-    raw = input(f"{message}{suffix}: ").strip()
+    raw = tty_prompt(f"{message}{suffix}: ").strip()
     if raw:
         return raw
     return default or ""
@@ -43,17 +65,17 @@ def prompt_text(message: str, default: str | None = None) -> str:
 
 def prompt_yes_no(message: str, default: bool = True) -> bool:
     default_hint = "Y/n" if default else "y/N"
-    raw = input(f"{message} [{default_hint}]: ").strip().lower()
+    raw = tty_prompt(f"{message} [{default_hint}]: ").strip().lower()
     if not raw:
         return default
     return raw in {"y", "yes", "1", "true"}
 
 
 def run_command(args: list[str]) -> int:
-    print()
-    print("执行命令:")
-    print(" ".join(args))
-    print()
+    tty_print()
+    tty_print("执行命令:")
+    tty_print(" ".join(args))
+    tty_print()
     result = subprocess.run(args, check=False)
     return result.returncode
 
@@ -111,13 +133,13 @@ def choose_nodes_file(default_path: str | None = None) -> str:
     candidates = find_nodes_candidates()
     if candidates:
         if len(candidates) == 1:
-            print(f"自动选中节点 JSON: {candidates[0]}")
+            tty_print(f"自动选中节点 JSON: {candidates[0]}")
             return str(candidates[0])
 
-        print("检测到以下节点 JSON 文件:")
+        tty_print("检测到以下节点 JSON 文件:")
         for index, path in enumerate(candidates, start=1):
-            print(f"{index}. {path}")
-        print()
+            tty_print(f"{index}. {path}")
+        tty_print()
         choice = prompt_text("选择文件编号或直接输入路径", "1")
         if choice.isdigit():
             selected_index = int(choice) - 1
@@ -273,7 +295,7 @@ def run_upload_flow(default_json: str | None = None) -> int:
         return preview_code
 
     if not prompt_yes_no("确认将以上计划正式写入 Xboard", False):
-        print("已取消写入。")
+        tty_print("已取消写入。")
         return 0
 
     return run_command(
@@ -286,12 +308,12 @@ def run_upload_flow(default_json: str | None = None) -> int:
 
 
 def interactive_menu() -> int:
-    print("xboard-node-tools 一键入口")
-    print("1. 导出现有节点到 JSON")
-    print("2. 上传到 Xboard")
-    print("3. 创建新的节点 JSON")
-    print("4. 退出")
-    print()
+    tty_print("xboard-node-tools 一键入口")
+    tty_print("1. 导出现有节点到 JSON")
+    tty_print("2. 上传到 Xboard")
+    tty_print("3. 创建新的节点 JSON")
+    tty_print("4. 退出")
+    tty_print()
 
     choice = prompt_text("请选择", "1")
     if choice == "1":

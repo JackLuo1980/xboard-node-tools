@@ -71,7 +71,7 @@ echo "==> 下载 ${REPO_OWNER}/${REPO_NAME}@${REPO_BRANCH}"
 curl -fsSL "$ARCHIVE_URL" -o "$TMP_DIR/repo.tar.gz"
 
 echo "==> 解压安装包"
-tar -xzf "$TMP_DIR/repo.tar.gz" -C "$TMP_DIR"
+tar --warning=no-timestamp -xzf "$TMP_DIR/repo.tar.gz" -C "$TMP_DIR"
 EXTRACTED_DIR="$(find "$TMP_DIR" -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -n 1)"
 
 if [[ -z "${EXTRACTED_DIR:-}" || ! -d "$EXTRACTED_DIR" ]]; then
