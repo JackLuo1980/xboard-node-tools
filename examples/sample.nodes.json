@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-08T02:00:00Z",
+  "generated_by": "node_probe.py",
+  "server": {
+    "hostname": "hk-01",
+    "host": "8.8.8.8",
+    "panel_name": "3x-ui",
+    "panel_db_path": "/etc/3x-ui/x-ui.db"
+  },
+  "defaults": {
+    "group_names": [
+      "vip1",
+      "vip2",
+      "vip3"
+    ]
+  },
+  "nodes": [
+    {
+      "selected": true,
+      "name": "Alibaba Cloud-Hongkong",
+      "protocol": "vless",
+      "type": "vless",
+      "host": "8.8.8.8",
+      "listen_port": 18431,
+      "server_port": 18431,
+      "network": "tcp",
+      "network_settings": {
+        "network": "tcp",
+        "security": "reality",
+        "uuid": "11111111-1111-1111-1111-111111111111",
+        "flow": "xtls-rprx-vision",
+        "reality_dest": "www.oracle.com:443",
+        "reality_server_name": "www.oracle.com",
+        "reality_private_key": "",
+        "reality_public_key": "",
+        "reality_short_id": "9cb5a55e"
+      },
+      "show": true,
+      "status": 1,
+      "rate": "1",
+      "sort": 0,
+      "group_names": [
+        "vip1",
+        "vip2",
+        "vip3"
+      ],
+      "route_names": [],
+      "tags": [
+        "imported",
+        "3x-ui"
+      ],
+      "source": {
+        "kind": "panel-inbound",
+        "inbound_id": 1,
+        "enabled": true,
+        "client_count": 1
+      }
+    }
+  ],
+  "output_path": "/root/hk-01.nodes.json"
+}
