@@ -7,6 +7,7 @@ import argparse
 import getpass
 import json
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
@@ -19,6 +20,17 @@ PROBE_SCRIPT = ROOT / "node_probe.py"
 IMPORT_SCRIPT = ROOT / "xboard_import.py"
 CONFIG_PATH = Path.home() / ".config" / "xboard-node-tools" / "config.json"
 INSTALL_URL = "https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh"
+PROFILE_REQUIRED_FIELDS = [
+    "ssh_host",
+    "ssh_user",
+    "remote_json_dir",
+    "db_host",
+    "db_port",
+    "db_name",
+    "db_user",
+    "db_password",
+    "groups",
+]
 
 
 def prompt_text(message: str, default: str | None = None) -> str:
@@ -61,6 +73,10 @@ def save_config(config: dict[str, Any]) -> None:
         json.dumps(config, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def profile_complete(profile: dict[str, Any]) -> bool:
+    return all(str(profile.get(field) or "").strip() for field in PROFILE_REQUIRED_FIELDS)
 
 
 def find_nodes_candidates() -> list[Path]:
@@ -131,8 +147,17 @@ def run_probe_flow(manual_only: bool = False) -> tuple[int, str | None]:
 
 def prompt_xboard_profile(config: dict[str, Any]) -> dict[str, Any]:
     profile = dict(config.get("default_xboard") or {})
+    if profile_complete(profile):
+        print(
+            "使用默认 Xboard 配置: "
+            f"{profile.get('ssh_user')}@{profile.get('ssh_host')} "
+            f"/ DB {profile.get('db_name')}"
+        )
+        return profile
+
     profile["ssh_host"] = prompt_text("Xboard SSH 主机", profile.get("ssh_host") or "")
     profile["ssh_user"] = prompt_text("Xboard SSH 用户", profile.get("ssh_user") or "root")
+    profile["ssh_password"] = profile.get("ssh_password") or ""
     profile["remote_json_dir"] = prompt_text("远端 JSON 目录", profile.get("remote_json_dir") or "/root")
     profile["db_host"] = prompt_text("MySQL 主机", profile.get("db_host") or "127.0.0.1")
     profile["db_port"] = prompt_text("MySQL 端口", str(profile.get("db_port") or "3306"))
@@ -146,6 +171,40 @@ def prompt_xboard_profile(config: dict[str, Any]) -> dict[str, Any]:
     profile["db_password"] = db_password
     profile["groups"] = prompt_text("默认权限组(逗号分隔)", profile.get("groups") or "vip1,vip2,vip3")
     return profile
+
+
+def maybe_save_profile(config: dict[str, Any], profile: dict[str, Any]) -> None:
+    if config.get("default_xboard") == profile:
+        return
+    if prompt_yes_no("是否保存为默认 Xboard 配置，供下次直接使用", True):
+        config["default_xboard"] = profile
+        save_config(config)
+
+
+def command_prefix_for_profile(profile: dict[str, Any]) -> list[str]:
+    ssh_password = str(profile.get("ssh_password") or "").strip()
+    if ssh_password:
+        return ["sshpass", "-p", ssh_password]
+    return []
+
+
+def ensure_sshpass_if_needed(profile: dict[str, Any]) -> None:
+    if str(profile.get("ssh_password") or "").strip() and not shutil.which("sshpass"):
+        raise RuntimeError("已配置 SSH 密码，但当前机器未安装 sshpass。")
+
+
+def build_ssh_command(profile: dict[str, Any], remote_command: str, tty: bool = False) -> list[str]:
+    ssh_target = f"{profile['ssh_user']}@{profile['ssh_host']}"
+    command = command_prefix_for_profile(profile) + ["ssh"]
+    if tty:
+        command.append("-t")
+    command.extend([ssh_target, remote_command])
+    return command
+
+
+def build_scp_command(profile: dict[str, Any], local_path: str, remote_path: str) -> list[str]:
+    ssh_target = f"{profile['ssh_user']}@{profile['ssh_host']}"
+    return command_prefix_for_profile(profile) + ["scp", local_path, f"{ssh_target}:{remote_path}"]
 
 
 def build_remote_import_command(remote_json_path: str, profile: dict[str, Any], apply: bool) -> str:
@@ -190,40 +249,25 @@ def run_upload_flow(default_json: str | None = None) -> int:
         print("未提供 Xboard SSH 主机。", file=sys.stderr)
         return 1
 
-    if prompt_yes_no("是否保存为默认 Xboard 配置，供下次直接使用", True):
-        config["default_xboard"] = profile
-        save_config(config)
+    maybe_save_profile(config, profile)
+    ensure_sshpass_if_needed(profile)
 
-    ssh_target = f"{profile['ssh_user']}@{profile['ssh_host']}"
     remote_json_path = f"{profile['remote_json_dir'].rstrip('/')}/{input_file.name}"
 
-    install_code = run_command(
-        [
-            "ssh",
-            ssh_target,
-            f"curl -fsSL {shlex.quote(INSTALL_URL)} | bash",
-        ]
-    )
+    install_code = run_command(build_ssh_command(profile, f"curl -fsSL {shlex.quote(INSTALL_URL)} | bash"))
     if install_code != 0:
         return install_code
 
-    copy_code = run_command(
-        [
-            "scp",
-            str(input_file),
-            f"{ssh_target}:{remote_json_path}",
-        ]
-    )
+    copy_code = run_command(build_scp_command(profile, str(input_file), remote_json_path))
     if copy_code != 0:
         return copy_code
 
     preview_code = run_command(
-        [
-            "ssh",
-            "-t",
-            ssh_target,
+        build_ssh_command(
+            profile,
             build_remote_import_command(remote_json_path, profile, apply=False),
-        ]
+            tty=True,
+        )
     )
     if preview_code != 0:
         return preview_code
@@ -233,12 +277,11 @@ def run_upload_flow(default_json: str | None = None) -> int:
         return 0
 
     return run_command(
-        [
-            "ssh",
-            "-t",
-            ssh_target,
+        build_ssh_command(
+            profile,
             build_remote_import_command(remote_json_path, profile, apply=True),
-        ]
+            tty=True,
+        )
     )
 
 

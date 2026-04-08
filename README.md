@@ -14,6 +14,32 @@
 curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh | bash
 ```
 
+### 预置默认 Xboard 并安装后自动运行
+
+安装脚本支持通过环境变量预置默认 Xboard 配置。这样安装完成后，`上传到 Xboard` 会直接复用这些值，不再反复询问。
+
+```bash
+XBOARD_DEFAULT_SSH_HOST="your-xboard-host" \
+XBOARD_DEFAULT_SSH_USER="root" \
+XBOARD_DEFAULT_SSH_PASSWORD="your-ssh-password" \
+XBOARD_DEFAULT_REMOTE_JSON_DIR="/root" \
+XBOARD_DEFAULT_DB_HOST="127.0.0.1" \
+XBOARD_DEFAULT_DB_PORT="3306" \
+XBOARD_DEFAULT_DB_NAME="xboard" \
+XBOARD_DEFAULT_DB_USER="xboard" \
+XBOARD_DEFAULT_DB_PASSWORD="your-db-password" \
+XBOARD_DEFAULT_GROUPS="vip1,vip2,vip3" \
+AUTO_RUN="true" \
+AUTO_MODE="menu" \
+curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh | bash
+```
+
+如果你想安装后直接进入上传流程，可以把 `AUTO_MODE` 改成：
+
+```bash
+AUTO_MODE="upload"
+```
+
 安装完成后，直接运行：
 
 ```bash
@@ -116,7 +142,8 @@ xboard-nodes
 - 导出完成后，会直接询问是否继续上传到 Xboard
 - 上传时会自动优先发现当前目录最新的 `*.nodes.json`
 - 第一次上传会提示填写 Xboard SSH 和数据库信息
-- 这些信息可以保存为默认值，后面尽量少重复输入
+- 如果安装时已经预置默认 Xboard 配置，这些信息会直接复用
+- 否则第一次填写后也可以保存为默认值，后面尽量少重复输入
 - 创建新的节点会直接跳过 `x-ui / 3x-ui` 检测，进入手工创建向导
 
 ### 节点服务器上
