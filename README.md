@@ -25,6 +25,23 @@
 curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh | bash
 ```
 
+### XrayR 单机安装
+
+如果你要在 VPS 上直接安装 `XrayR` 并写入固定模板，可以直接用这个入口脚本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/main/install_xrayr_node.sh | bash
+```
+
+脚本会：
+
+- 安装官方 `XrayR`
+- 写入 `/etc/XrayR/config.yml`
+- 强制你输入 `NodeID`
+- 重启并检查 `XrayR` 服务
+
+`NodeID` 不能为空；脚本不会替你猜默认值。
+
 ### 预置默认 Xboard 并安装后自动运行
 
 安装脚本支持通过环境变量预置默认 Xboard 配置。这样安装完成后，`上传到 Xboard` 会直接复用这些值，不再反复询问。
