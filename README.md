@@ -6,6 +6,32 @@
 
 现在已经提供统一的一键入口，不需要你自己分别记 `node_probe.py` 和 `xboard_import.py` 的执行步骤。
 
+## 一键安装
+
+### 稳定版
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/main/install.sh | bash
+```
+
+安装完成后，直接运行：
+
+```bash
+xboard-nodes
+```
+
+### 直接进入采集模式
+
+```bash
+xboard-nodes --mode probe
+```
+
+### 直接进入导入模式
+
+```bash
+xboard-nodes --mode import
+```
+
 ## 功能
 
 - 自动检测本机 `x-ui / 3x-ui`
@@ -34,6 +60,11 @@
   - Shell 快捷入口
   - 等价于执行 `python3 xboard_nodes.py`
 
+- `install.sh`
+  - 安装脚本
+  - 会把仓库安装到 `/opt/xboard-node-tools`
+  - 并创建全局命令 `xboard-nodes`
+
 - `examples/sample.nodes.json`
   - 导出格式示例
 
@@ -57,6 +88,12 @@ bash run.sh
 1. 采集本机节点并导出 JSON
 2. 导入 JSON 到 Xboard
 3. 退出
+```
+
+如果你已经执行过一键安装，推荐直接用：
+
+```bash
+xboard-nodes
 ```
 
 ### 节点服务器上
