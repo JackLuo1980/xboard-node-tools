@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -43,6 +44,10 @@ def parse_args() -> argparse.Namespace:
         "--force-insert",
         action="store_true",
         help="Do not try to update matching nodes; always insert new rows.",
+    )
+    parser.add_argument(
+        "--result-output",
+        help="Optional path to write structured import results JSON.",
     )
     return parser.parse_args()
 
@@ -209,6 +214,17 @@ def build_update_sql(table_name: str, row: dict[str, Any], record_id: int) -> st
     return f"UPDATE `{table_name}` SET {assignments} WHERE id={record_id};"
 
 
+def write_result_output(path: str, payload: dict[str, Any]) -> None:
+    output_path = Path(path).expanduser()
+    if not output_path.is_absolute():
+        output_path = (Path.cwd() / output_path).resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> int:
     args = parse_args()
     input_path = Path(args.input).expanduser().resolve()
@@ -222,6 +238,7 @@ def main() -> int:
 
     sql_statements: list[str] = []
     summaries: list[str] = []
+    result_items: list[dict[str, Any]] = []
 
     for node in payload.get("nodes", []):
         group_ids = resolve_group_ids(node, fallback_groups, group_map)
@@ -230,9 +247,35 @@ def main() -> int:
         if existing_id is None:
             sql_statements.append(build_insert_sql(table_name, row))
             summaries.append(f"INSERT {node['name']} ({node['host']}:{node.get('server_port')})")
+            result_items.append(
+                {
+                    "action": "insert",
+                    "node_id": None,
+                    "name": node["name"],
+                    "type": node.get("type") or node.get("protocol"),
+                    "host": node["host"],
+                    "server_port": node.get("server_port"),
+                    "group_names": node.get("group_names") or fallback_groups,
+                    "network_settings": node.get("network_settings") or {},
+                    "source": node.get("source") or {},
+                }
+            )
         else:
             sql_statements.append(build_update_sql(table_name, row, existing_id))
             summaries.append(f"UPDATE #{existing_id} {node['name']} ({node['host']}:{node.get('server_port')})")
+            result_items.append(
+                {
+                    "action": "update",
+                    "node_id": existing_id,
+                    "name": node["name"],
+                    "type": node.get("type") or node.get("protocol"),
+                    "host": node["host"],
+                    "server_port": node.get("server_port"),
+                    "group_names": node.get("group_names") or fallback_groups,
+                    "network_settings": node.get("network_settings") or {},
+                    "source": node.get("source") or {},
+                }
+            )
 
     if not sql_statements:
         print("JSON 中没有节点。", file=sys.stderr)
@@ -248,12 +291,56 @@ def main() -> int:
         print("\n".join(sql_statements))
         print()
         print("确认无误后，重新加 `--apply` 执行。")
+        if args.result_output:
+            write_result_output(
+                args.result_output,
+                {
+                    "applied": False,
+                    "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "database": {
+                        "host": args.db_host,
+                        "port": args.db_port,
+                        "name": args.db_name,
+                    },
+                    "nodes": result_items,
+                },
+            )
         return 0
 
     sql = "\n".join(sql_statements) + "\n"
     run_mysql(args, sql)
+    refreshed_items: list[dict[str, Any]] = []
+    for item in result_items:
+        if item["node_id"] is None:
+            node_stub = {
+                "host": item["host"],
+                "type": item["type"],
+                "server_port": item["server_port"],
+                "name": item["name"],
+            }
+            item["node_id"] = find_existing_node_id(args, table_name, node_stub, columns)
+        refreshed_items.append(item)
     print()
     print(f"已写入 {len(sql_statements)} 条 SQL 到 Xboard 数据库。")
+    for item in refreshed_items:
+        node_id = item.get("node_id")
+        if node_id is not None:
+            print(f"  - 节点 {item['name']} => NodeID {node_id}")
+    if args.result_output:
+        write_result_output(
+            args.result_output,
+            {
+                "applied": True,
+                "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "database": {
+                    "host": args.db_host,
+                    "port": args.db_port,
+                    "name": args.db_name,
+                },
+                "nodes": refreshed_items,
+            },
+        )
+        print(f"结果文件已写入: {os.path.abspath(os.path.expanduser(args.result_output))}")
     return 0
 
 

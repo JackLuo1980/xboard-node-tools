@@ -118,6 +118,11 @@ curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh 
 - `xboard_import.py`
   - Xboard 服务器本机运行
   - 负责预览和导入节点
+  - 支持 `--result-output` 写出带 NodeID 的结果 JSON
+
+- `xrayr_config.py`
+  - 根据导入结果 JSON 生成 XrayR 配置模板
+  - 用于把新节点继续接成真正在线状态
 
 - `xboard_nodes.py`
   - 统一一键入口
@@ -243,6 +248,25 @@ python3 xboard_import.py hk-01.nodes.json \
   --db-user xboard \
   --db-password 'your-password' \
   --apply
+```
+
+如果你想拿到后续的 XrayR 配置模板，推荐正式导入时同时写结果文件：
+
+```bash
+python3 xboard_import.py hk-01.nodes.json \
+  --db-user xboard \
+  --db-password 'your-password' \
+  --apply \
+  --result-output hk-01.import-result.json
+```
+
+然后根据结果文件生成 XrayR 配置模板：
+
+```bash
+python3 xrayr_config.py hk-01.import-result.json \
+  --panel-host https://x.asli.eu.org \
+  --api-key 'your-panel-key' \
+  --output ./xrayr-configs
 ```
 
 ## 典型场景
