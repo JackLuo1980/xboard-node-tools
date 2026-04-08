@@ -131,29 +131,45 @@ def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
     return row is not None
 
 
+def get_table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
+    return {
+        row[1]
+        for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    }
+
+
 def load_inbounds(db_path: Path) -> list[dict[str, Any]]:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
         if not table_exists(conn, "inbounds"):
             return []
+        columns = get_table_columns(conn, "inbounds")
+        select_fields = [
+            "id",
+            "remark",
+            "enable",
+            "listen",
+            "port",
+            "protocol",
+            "settings",
+        ]
+        optional_fields = [
+            "up",
+            "down",
+            "total",
+            "expiry_time",
+            "stream_settings",
+            "streamSettings",
+            "sniffing",
+        ]
+        for field in optional_fields:
+            if field in columns:
+                select_fields.append(field)
         rows = conn.execute(
-            """
+            f"""
             SELECT
-                id,
-                up,
-                down,
-                total,
-                remark,
-                enable,
-                expiry_time,
-                listen,
-                port,
-                protocol,
-                settings,
-                stream_settings,
-                streamSettings,
-                sniffing
+                {", ".join(select_fields)}
             FROM inbounds
             ORDER BY id ASC
             """
@@ -164,8 +180,9 @@ def load_inbounds(db_path: Path) -> list[dict[str, Any]]:
     parsed: list[dict[str, Any]] = []
     for row in rows:
         settings_raw = row["settings"] or "{}"
-        stream_raw = row["stream_settings"] or row["streamSettings"] or "{}"
-        sniffing_raw = row["sniffing"] or "{}"
+        row_map = dict(row)
+        stream_raw = row_map.get("stream_settings") or row_map.get("streamSettings") or "{}"
+        sniffing_raw = row_map.get("sniffing") or "{}"
         try:
             settings = json.loads(settings_raw)
         except json.JSONDecodeError:

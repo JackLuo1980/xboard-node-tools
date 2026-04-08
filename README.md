@@ -32,6 +32,14 @@ xboard-nodes --mode probe
 xboard-nodes --mode import
 ```
 
+### 已安装后的升级
+
+```bash
+curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh | bash
+```
+
+当前安装脚本是覆盖式安装，重复执行即可升级到最新版本。
+
 ## 功能
 
 - 自动检测本机 `x-ui / 3x-ui`
