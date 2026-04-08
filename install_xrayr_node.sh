@@ -3,7 +3,7 @@ set -euo pipefail
 
 API_HOST="https://x.asli.eu.org"
 API_KEY="umon3ErJKnqQbgB4aJAw"
-NODE_ID_DEFAULT="3"
+NODE_ID_DEFAULT=""
 CONFIG_PATH="/etc/XrayR/config.yml"
 INSTALL_URL="https://raw.githubusercontent.com/XrayR-project/XrayR-release/master/install.sh"
 
@@ -133,15 +133,18 @@ main() {
   log "XrayR 一键安装脚本"
   log "ApiHost: ${API_HOST}"
   log "ApiKey : ${API_KEY}"
-  log "默认 NodeID: ${NODE_ID_DEFAULT}"
   if [[ -r /dev/tty ]]; then
-    printf '请输入 NodeID [%s]: ' "$NODE_ID_DEFAULT" >/dev/tty
+    printf '请输入 NodeID: ' >/dev/tty
     read -r input_node_id </dev/tty
   else
-    printf '请输入 NodeID [%s]: ' "$NODE_ID_DEFAULT"
+    printf '请输入 NodeID: '
     read -r input_node_id
   fi
-  local node_id="${input_node_id:-$NODE_ID_DEFAULT}"
+  local node_id="${input_node_id:-}"
+  if [[ -z "$node_id" ]]; then
+    log "NodeID 为必填项，不能为空。"
+    exit 1
+  fi
 
   install_xrayr
   write_config "$node_id"
