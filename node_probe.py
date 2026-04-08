@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import ipaddress
 import secrets
 import shutil
 import socket
@@ -108,6 +109,39 @@ def choose_host(override: str | None) -> str:
             candidates.append(sock.getsockname()[0])
     except OSError:
         pass
+
+    public_candidates = []
+    for candidate in candidates:
+        if not candidate or candidate.startswith("127."):
+            continue
+        try:
+            ip = ipaddress.ip_address(candidate)
+        except ValueError:
+            return candidate
+        if not ip.is_private and not ip.is_loopback:
+            public_candidates.append(candidate)
+
+    if public_candidates:
+        return public_candidates[0]
+
+    for lookup_url in ("https://api.ipify.org", "https://ifconfig.me"):
+        try:
+            result = subprocess.run(
+                ["curl", "-fsSL", lookup_url],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            continue
+        if result.returncode == 0:
+            candidate = result.stdout.strip()
+            try:
+                ip = ipaddress.ip_address(candidate)
+            except ValueError:
+                continue
+            if not ip.is_private and not ip.is_loopback:
+                return candidate
 
     for candidate in candidates:
         if candidate and not candidate.startswith("127."):
