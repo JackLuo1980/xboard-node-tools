@@ -150,6 +150,11 @@ curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh 
 - `examples/sample.nodes.json`
   - 导出格式示例
 
+- `install_xrayr_node.sh`
+  - 单台 VPS 的 XrayR 一键安装脚本
+  - 会安装 XrayR、写入固定配置模板、提示你确认 `NodeID`
+  - 最后自动重启并检查服务状态
+
 ## 一键用法
 
 ### 推荐方式

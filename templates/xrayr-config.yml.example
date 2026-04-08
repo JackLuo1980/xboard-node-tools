@@ -14,7 +14,7 @@ RouteConfigPath: null
 InboundConfigPath: null
 OutboundConfigPath: null
 
-ConnetionConfig:
+ConnectionConfig:
   Handshake: 4
   ConnIdle: 30
   UplinkOnly: 2
@@ -31,6 +31,7 @@ Nodes:
       Timeout: 30
       EnableVless: true
       EnableXTLS: true
+      VlessFlow: xtls-rprx-vision
       SpeedLimit: 0
       DeviceLimit: 0
       RuleListPath: /etc/XrayR/rulelist
@@ -41,6 +42,9 @@ Nodes:
       UpdatePeriodic: 60
       EnableDNS: false
       DNSType: AsIs
+      DisableLocalREALITYConfig: true
+      REALITYConfigs:
+        Show: true
       EnableProxyProtocol: false
       AutoSpeedLimitConfig:
         Limit: 0
@@ -54,6 +58,8 @@ Nodes:
         RedisDB: 0
         Timeout: 5
         Expiry: 60
+      EnableFallback: false
+      FallBackConfigs: []
       CertConfig:
         CertMode: none
         CertDomain: ""
@@ -61,3 +67,4 @@ Nodes:
         KeyFile: ""
         Provider: ""
         Email: ""
+        DNSEnv: []
