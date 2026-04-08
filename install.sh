@@ -57,5 +57,6 @@ echo "现在可以直接运行:"
 echo "  xboard-nodes"
 echo
 echo "如果你想直接进入某个流程，也可以："
-echo "  xboard-nodes --mode probe"
-echo "  xboard-nodes --mode import"
+echo "  xboard-nodes --mode export"
+echo "  xboard-nodes --mode upload"
+echo "  xboard-nodes --mode create"

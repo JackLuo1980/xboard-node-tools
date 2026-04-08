@@ -94,6 +94,10 @@ def choose_nodes_file(default_path: str | None = None) -> str:
 
     candidates = find_nodes_candidates()
     if candidates:
+        if len(candidates) == 1:
+            print(f"自动选中节点 JSON: {candidates[0]}")
+            return str(candidates[0])
+
         print("检测到以下节点 JSON 文件:")
         for index, path in enumerate(candidates, start=1):
             print(f"{index}. {path}")
