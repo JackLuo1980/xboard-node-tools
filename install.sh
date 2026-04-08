@@ -103,6 +103,7 @@ echo "如果你想直接进入某个流程，也可以："
 echo "  xboard-nodes --mode export"
 echo "  xboard-nodes --mode upload"
 echo "  xboard-nodes --mode create"
+echo "  xboard-nodes --mode sync"
 
 if [[ "$AUTO_RUN" == "true" ]]; then
   echo

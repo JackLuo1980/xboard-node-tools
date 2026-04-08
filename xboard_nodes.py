@@ -167,6 +167,12 @@ def run_probe_flow(manual_only: bool = False) -> tuple[int, str | None]:
     return run_command(command), output_path
 
 
+def run_probe_auto_flow() -> tuple[int, str | None]:
+    output_path = f"{socket.gethostname()}.nodes.json"
+    command = [sys.executable, str(PROBE_SCRIPT), "-o", output_path, "--non-interactive"]
+    return run_command(command), output_path
+
+
 def prompt_xboard_profile(config: dict[str, Any]) -> dict[str, Any]:
     profile = dict(config.get("default_xboard") or {})
     if profile_complete(profile):
@@ -307,12 +313,20 @@ def run_upload_flow(default_json: str | None = None) -> int:
     )
 
 
+def run_sync_flow() -> int:
+    export_code, export_path = run_probe_auto_flow()
+    if export_code != 0:
+        return export_code
+    return run_upload_flow(default_json=export_path)
+
+
 def interactive_menu() -> int:
     tty_print("xboard-node-tools 一键入口")
     tty_print("1. 导出现有节点到 JSON")
     tty_print("2. 上传到 Xboard")
     tty_print("3. 创建新的节点 JSON")
-    tty_print("4. 退出")
+    tty_print("4. 一键同步到 Xboard")
+    tty_print("5. 退出")
     tty_print()
 
     choice = prompt_text("请选择", "1")
@@ -339,6 +353,8 @@ def interactive_menu() -> int:
             return run_upload_flow(default_json=export_path)
         return 0
     if choice == "4":
+        return run_sync_flow()
+    if choice == "5":
         return 0
 
     print("无效选项。", file=sys.stderr)
@@ -349,7 +365,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="One-click interactive menu for xboard-node-tools.")
     parser.add_argument(
         "--mode",
-        choices=["menu", "export", "upload", "create"],
+        choices=["menu", "export", "upload", "create", "sync"],
         default="menu",
         help="Run a specific flow directly.",
     )
@@ -366,6 +382,8 @@ def main() -> int:
     if args.mode == "create":
         code, _ = run_probe_flow(manual_only=True)
         return code
+    if args.mode == "sync":
+        return run_sync_flow()
     return interactive_menu()
 
 

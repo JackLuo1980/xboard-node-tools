@@ -40,6 +40,17 @@ curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh 
 AUTO_MODE="upload"
 ```
 
+如果你是自己批量给很多机器同步，推荐直接改成：
+
+```bash
+AUTO_MODE="sync"
+```
+
+`sync` 会自动做两步：
+
+1. 非交互导出现有节点到 `主机名.nodes.json`
+2. 立刻上传到你预置好的默认 Xboard
+
 安装完成后，直接运行：
 
 ```bash
@@ -62,6 +73,12 @@ xboard-nodes --mode upload
 
 ```bash
 xboard-nodes --mode create
+```
+
+### 直接一键同步
+
+```bash
+xboard-nodes --mode sync
 ```
 
 ### 已安装后的升级
@@ -128,7 +145,8 @@ bash run.sh
 1. 导出现有节点到 JSON
 2. 上传到 Xboard
 3. 创建新的节点 JSON
-4. 退出
+4. 一键同步到 Xboard
+5. 退出
 ```
 
 如果你已经执行过一键安装，推荐直接用：
@@ -145,6 +163,7 @@ xboard-nodes
 - 如果安装时已经预置默认 Xboard 配置，这些信息会直接复用
 - 否则第一次填写后也可以保存为默认值，后面尽量少重复输入
 - 创建新的节点会直接跳过 `x-ui / 3x-ui` 检测，进入手工创建向导
+- 一键同步会直接“非交互导出 + 上传到默认 Xboard”
 
 ### 节点服务器上
 
@@ -159,6 +178,12 @@ xboard-nodes
 
 - 直接进入手工建节点模式
 - 适合空机或你想新建节点时使用
+
+选择 `4`：
+
+- 适合你这种批量同步很多机器的场景
+- 不再逐条询问导出
+- 直接自动导出并上传到默认 Xboard
 
 ### 上传到 Xboard
 
@@ -297,6 +322,9 @@ python3 xboard_nodes.py --help
 
 - `--mode create`
   - 直接进入手工创建新节点流程
+
+- `--mode sync`
+  - 直接非交互导出并上传到默认 Xboard
 
 ## 默认行为
 
