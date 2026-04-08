@@ -136,12 +136,61 @@ def compact_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
+def build_protocol_settings(node: dict[str, Any]) -> dict[str, Any]:
+    network_settings = node.get("network_settings") or {}
+    security = str(network_settings.get("security") or "").lower()
+    protocol = str(node.get("type") or node.get("protocol") or "").lower()
+    settings: dict[str, Any] = {
+        "tls": 2 if security == "reality" else 0,
+        "flow": network_settings.get("flow") or ("xtls-rprx-vision" if protocol == "vless" and security == "reality" else ""),
+        "utls": {
+            "enabled": False,
+            "fingerprint": "chrome",
+        },
+        "network": node.get("network") or network_settings.get("network") or "tcp",
+        "multiplex": {
+            "brutal": {
+                "enabled": False,
+                "up_mbps": None,
+                "down_mbps": None,
+            },
+            "enabled": False,
+            "padding": False,
+            "protocol": "yamux",
+            "max_connections": None,
+        },
+        "encryption": {
+            "enabled": False,
+            "decryption": "none",
+            "encryption": None,
+        },
+        "tls_settings": None,
+        "network_settings": None,
+        "reality_settings": None,
+    }
+    if security == "reality":
+        reality_dest = str(network_settings.get("reality_dest") or "")
+        reality_port = "443"
+        if ":" in reality_dest:
+            reality_port = reality_dest.rsplit(":", 1)[-1] or "443"
+        settings["reality_settings"] = {
+            "short_id": network_settings.get("reality_short_id") or "",
+            "public_key": network_settings.get("reality_public_key") or "",
+            "private_key": network_settings.get("reality_private_key") or "",
+            "server_name": network_settings.get("reality_server_name") or "",
+            "server_port": reality_port,
+            "allow_insecure": False,
+        }
+    return settings
+
+
 def build_row(node: dict[str, Any], group_ids: list[str], columns: set[str]) -> dict[str, Any]:
     now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     host = node["host"]
     listen_port = int(node.get("listen_port") or node.get("server_port") or 0)
     server_port = int(node.get("server_port") or listen_port)
     network_settings = node.get("network_settings") or {}
+    protocol_settings = build_protocol_settings(node)
     tags = node.get("tags") or []
     route_ids = node.get("route_ids") or []
 
@@ -161,6 +210,7 @@ def build_row(node: dict[str, Any], group_ids: list[str], columns: set[str]) -> 
         "rate": str(node.get("rate", "1")),
         "network": node.get("network") or network_settings.get("network") or "tcp",
         "networkSettings": compact_json(network_settings),
+        "protocol_settings": compact_json(protocol_settings),
         "group_ids": compact_json([str(item) for item in group_ids]),
         "route_ids": compact_json(route_ids),
         "tags": compact_json(tags),

@@ -348,15 +348,21 @@ def build_network_settings_from_inbound(
 
     if security == "reality":
         reality = stream_settings.get("realitySettings") or {}
+        reality_nested_settings = reality.get("settings") or {}
         server_names = reality.get("serverNames") or []
         short_ids = reality.get("shortIds") or []
         result.update(
             {
-                "reality_dest": reality.get("dest") or "",
-                "reality_server_name": server_names[0] if server_names else "",
+                "reality_dest": reality.get("dest") or reality.get("target") or "",
+                "reality_server_name": (
+                    server_names[0]
+                    if server_names
+                    else reality_nested_settings.get("serverName") or ""
+                ),
                 "reality_private_key": reality.get("privateKey") or "",
-                "reality_public_key": reality.get("publicKey") or "",
+                "reality_public_key": reality.get("publicKey") or reality_nested_settings.get("publicKey") or "",
                 "reality_short_id": short_ids[0] if short_ids else "",
+                "reality_fingerprint": reality_nested_settings.get("fingerprint") or "chrome",
             }
         )
     return result
@@ -410,19 +416,14 @@ def build_auto_network_settings(
 def inbound_to_candidate(inbound: dict[str, Any], host: str) -> dict[str, Any]:
     protocol = normalize_protocol(inbound["protocol"])
     current_port = int(inbound["port"])
-    current_settings = build_network_settings_from_inbound(
+    cloned_settings = build_network_settings_from_inbound(
         protocol=protocol,
         stream_settings=inbound["stream_settings"],
         settings=inbound["settings"],
     )
-    security = current_settings.get("security") or ""
-    network = current_settings.get("network") or DEFAULT_NETWORK
+    network = cloned_settings.get("network") or DEFAULT_NETWORK
     cloned_port = pick_available_port({current_port})
-    network_settings = build_auto_network_settings(
-        protocol,
-        security=security,
-        network=network,
-    )
+    network_settings = dict(cloned_settings)
     name = inbound["remark"] or f"{socket.gethostname()}-{protocol}-{current_port}"
     tags = ["cloned", "parallel-new"]
     if "3x" in (inbound.get("panel_name") or ""):
