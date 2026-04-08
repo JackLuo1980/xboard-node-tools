@@ -216,6 +216,19 @@ def command_prefix_for_profile(profile: dict[str, Any]) -> list[str]:
     return []
 
 
+def ssh_common_options() -> list[str]:
+    return [
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-o",
+        "UserKnownHostsFile=/dev/null",
+        "-o",
+        "LogLevel=ERROR",
+        "-o",
+        "ConnectTimeout=15",
+    ]
+
+
 def ensure_sshpass_if_needed(profile: dict[str, Any]) -> None:
     if not str(profile.get("ssh_password") or "").strip():
         return
@@ -258,16 +271,16 @@ def ensure_sshpass_if_needed(profile: dict[str, Any]) -> None:
 
 def build_ssh_command(profile: dict[str, Any], remote_command: str, tty: bool = False) -> list[str]:
     ssh_target = f"{profile['ssh_user']}@{profile['ssh_host']}"
-    command = command_prefix_for_profile(profile) + ["ssh"]
+    command = command_prefix_for_profile(profile) + ["ssh", *ssh_common_options()]
     if tty:
         command.append("-t")
-    command.extend([ssh_target, remote_command])
+    command.extend([ssh_target, "bash", "-lc", remote_command])
     return command
 
 
 def build_scp_command(profile: dict[str, Any], local_path: str, remote_path: str) -> list[str]:
     ssh_target = f"{profile['ssh_user']}@{profile['ssh_host']}"
-    return command_prefix_for_profile(profile) + ["scp", local_path, f"{ssh_target}:{remote_path}"]
+    return command_prefix_for_profile(profile) + ["scp", *ssh_common_options(), local_path, f"{ssh_target}:{remote_path}"]
 
 
 def build_remote_import_command(remote_json_path: str, profile: dict[str, Any], apply: bool) -> str:
@@ -317,14 +330,21 @@ def run_upload_flow(default_json: str | None = None) -> int:
 
     remote_json_path = f"{profile['remote_json_dir'].rstrip('/')}/{input_file.name}"
 
+    tty_print("步骤 1/4: 远端安装或更新 xboard-node-tools")
     install_code = run_command(build_ssh_command(profile, f"curl -fsSL {shlex.quote(INSTALL_URL)} | bash"))
     if install_code != 0:
+        tty_print("失败: 远端安装或更新 xboard-node-tools 未成功。")
         return install_code
+    tty_print("成功: 远端工具已准备完成。")
 
+    tty_print("步骤 2/4: 上传节点 JSON 到 Xboard 服务器")
     copy_code = run_command(build_scp_command(profile, str(input_file), remote_json_path))
     if copy_code != 0:
+        tty_print("失败: 节点 JSON 上传未成功。")
         return copy_code
+    tty_print("成功: 节点 JSON 已上传。")
 
+    tty_print("步骤 3/4: 远端 dry-run 预览导入计划")
     preview_code = run_command(
         build_ssh_command(
             profile,
@@ -333,19 +353,27 @@ def run_upload_flow(default_json: str | None = None) -> int:
         )
     )
     if preview_code != 0:
+        tty_print("失败: dry-run 预览未成功。")
         return preview_code
+    tty_print("成功: dry-run 已完成。")
 
     if not prompt_yes_no("确认将以上计划正式写入 Xboard", False):
         tty_print("已取消写入。")
         return 0
 
-    return run_command(
+    tty_print("步骤 4/4: 正式写入 Xboard")
+    apply_code = run_command(
         build_ssh_command(
             profile,
             build_remote_import_command(remote_json_path, profile, apply=True),
             tty=True,
         )
     )
+    if apply_code != 0:
+        tty_print("失败: 正式写入 Xboard 未成功。")
+        return apply_code
+    tty_print("成功: 节点已写入 Xboard。")
+    return 0
 
 
 def run_sync_flow() -> int:
