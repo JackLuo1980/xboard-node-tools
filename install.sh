@@ -25,9 +25,47 @@ need_cmd() {
   fi
 }
 
+install_sshpass_if_needed() {
+  if [[ -z "${XBOARD_DEFAULT_SSH_PASSWORD:-}" ]]; then
+    return 0
+  fi
+
+  if command -v sshpass >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "==> 检测到预置 SSH 密码，但本机未安装 sshpass，尝试自动安装"
+
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -y >/dev/null
+    DEBIAN_FRONTEND=noninteractive apt-get install -y sshpass >/dev/null
+    return 0
+  fi
+
+  if command -v dnf >/dev/null 2>&1; then
+    dnf install -y sshpass >/dev/null
+    return 0
+  fi
+
+  if command -v yum >/dev/null 2>&1; then
+    yum install -y epel-release >/dev/null 2>&1 || true
+    yum install -y sshpass >/dev/null
+    return 0
+  fi
+
+  if command -v apk >/dev/null 2>&1; then
+    apk add --no-cache sshpass >/dev/null
+    return 0
+  fi
+
+  echo "无法自动安装 sshpass，请手工安装后重试。" >&2
+  exit 1
+}
+
 need_cmd curl
 need_cmd tar
 need_cmd python3
+install_sshpass_if_needed
 
 write_default_config() {
   if [[ -z "${XBOARD_DEFAULT_SSH_HOST:-}" ]]; then
