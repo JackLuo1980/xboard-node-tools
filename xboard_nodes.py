@@ -217,8 +217,43 @@ def command_prefix_for_profile(profile: dict[str, Any]) -> list[str]:
 
 
 def ensure_sshpass_if_needed(profile: dict[str, Any]) -> None:
-    if str(profile.get("ssh_password") or "").strip() and not shutil.which("sshpass"):
-        raise RuntimeError("已配置 SSH 密码，但当前机器未安装 sshpass。")
+    if not str(profile.get("ssh_password") or "").strip():
+        return
+    if shutil.which("sshpass"):
+        return
+
+    tty_print("检测到预置 SSH 密码，但本机未安装 sshpass，尝试自动安装...")
+
+    install_commands = [
+        ["apt-get", "update", "-y"],
+        ["apt-get", "install", "-y", "sshpass"],
+    ]
+
+    if shutil.which("apt-get"):
+        for command in install_commands:
+            result = subprocess.run(command, check=False)
+            if result.returncode != 0:
+                raise RuntimeError("自动安装 sshpass 失败，请手工安装后重试。")
+        if shutil.which("sshpass"):
+            return
+
+    if shutil.which("dnf"):
+        result = subprocess.run(["dnf", "install", "-y", "sshpass"], check=False)
+        if result.returncode == 0 and shutil.which("sshpass"):
+            return
+
+    if shutil.which("yum"):
+        subprocess.run(["yum", "install", "-y", "epel-release"], check=False)
+        result = subprocess.run(["yum", "install", "-y", "sshpass"], check=False)
+        if result.returncode == 0 and shutil.which("sshpass"):
+            return
+
+    if shutil.which("apk"):
+        result = subprocess.run(["apk", "add", "--no-cache", "sshpass"], check=False)
+        if result.returncode == 0 and shutil.which("sshpass"):
+            return
+
+    raise RuntimeError("已配置 SSH 密码，但当前机器未安装 sshpass，且自动安装失败。")
 
 
 def build_ssh_command(profile: dict[str, Any], remote_command: str, tty: bool = False) -> list[str]:
