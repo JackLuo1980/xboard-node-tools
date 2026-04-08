@@ -127,6 +127,11 @@ curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh 
   - 根据导入结果 JSON 生成 XrayR 配置模板
   - 用于把新节点继续接成真正在线状态
 
+- `templates/xrayr-config.yml.example`
+  - VPS 侧 XrayR 配置模板
+  - 只需要填 `ApiHost`、`ApiKey` 和 `NodeID`
+  - Reality / shortId / 公私钥留在 Xboard 节点编辑页配置
+
 - `xboard_nodes.py`
   - 统一一键入口
   - 菜单式选择“导出 / 上传 / 创建新的”

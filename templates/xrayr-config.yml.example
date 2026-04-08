@@ -1,0 +1,63 @@
+# XrayR config template for Xboard nodes.
+# Copy this file to /etc/XrayR/config.yml and fill in the placeholders.
+# On the VPS side you only need the panel connection fields and NodeID.
+# Reality / UUID / shortId details are configured in Xboard's node editor,
+# not on the server, so xrayN does not need to be installed on the VPS.
+
+Log:
+  Level: warning
+  AccessPath: ""
+  ErrorPath: ""
+
+DnsConfigPath: null
+RouteConfigPath: null
+InboundConfigPath: null
+OutboundConfigPath: null
+
+ConnetionConfig:
+  Handshake: 4
+  ConnIdle: 30
+  UplinkOnly: 2
+  DownlinkOnly: 4
+  BufferSize: 64
+
+Nodes:
+  - PanelType: V2board
+    ApiConfig:
+      ApiHost: https://YOUR-XBOARD-HOST
+      ApiKey: YOUR-API-KEY
+      NodeID: YOUR-NODE-ID
+      NodeType: V2ray
+      Timeout: 30
+      EnableVless: true
+      EnableXTLS: true
+      SpeedLimit: 0
+      DeviceLimit: 0
+      RuleListPath: /etc/XrayR/rulelist
+      DisableCustomConfig: false
+    ControllerConfig:
+      ListenIP: 0.0.0.0
+      SendIP: 0.0.0.0
+      UpdatePeriodic: 60
+      EnableDNS: false
+      DNSType: AsIs
+      EnableProxyProtocol: false
+      AutoSpeedLimitConfig:
+        Limit: 0
+        WarnTimes: 0
+        LimitSpeed: 0
+        LimitDuration: 0
+      GlobalDeviceLimitConfig:
+        Enable: false
+        RedisAddr: 127.0.0.1:6379
+        RedisPassword: null
+        RedisDB: 0
+        Timeout: 5
+        Expiry: 60
+      CertConfig:
+        CertMode: none
+        CertDomain: ""
+        CertFile: ""
+        KeyFile: ""
+        Provider: ""
+        Email: ""
