@@ -132,7 +132,7 @@ def compact_json(value: Any) -> str:
 
 
 def build_row(node: dict[str, Any], group_ids: list[str], columns: set[str]) -> dict[str, Any]:
-    now = int(time.time())
+    now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     host = node["host"]
     listen_port = int(node.get("listen_port") or node.get("server_port") or 0)
     server_port = int(node.get("server_port") or listen_port)

@@ -331,7 +331,9 @@ def run_upload_flow(default_json: str | None = None) -> int:
     remote_json_path = f"{profile['remote_json_dir'].rstrip('/')}/{input_file.name}"
 
     tty_print("步骤 1/4: 远端安装或更新 xboard-node-tools")
-    install_code = run_command(build_ssh_command(profile, f"curl -fsSL {shlex.quote(INSTALL_URL)} | bash"))
+    install_code = run_command(
+        build_ssh_command(profile, f"curl -fsSL {shlex.quote(INSTALL_URL)} | AUTO_RUN=false bash")
+    )
     if install_code != 0:
         tty_print("失败: 远端安装或更新 xboard-node-tools 未成功。")
         return install_code
