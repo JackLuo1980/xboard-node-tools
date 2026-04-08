@@ -577,7 +577,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--non-interactive",
         action="store_true",
-        help="Export all detected inbounds without confirmation. If no inbounds are found, exit directly.",
+        help="Export the first detected inbound without confirmation. If no inbounds are found, exit directly.",
+    )
+    parser.add_argument(
+        "--all-inbounds",
+        action="store_true",
+        help="When used with --non-interactive, export all detected inbounds.",
     )
     parser.add_argument(
         "--manual-only",
@@ -601,8 +606,12 @@ def main() -> int:
     if inbounds:
         print(f"检测到 {panel_name}，数据库: {db_path}")
         if args.non_interactive:
-            print("非交互模式下将自动复制所有可用入站为同名平行新节点。")
-            for inbound in inbounds:
+            selected_inbounds = inbounds if args.all_inbounds else inbounds[:1]
+            if args.all_inbounds:
+                print("非交互模式下将自动复制所有可用入站为同名平行新节点。")
+            else:
+                print("非交互模式下默认只导出第一条可用入站。")
+            for inbound in selected_inbounds:
                 inbound["panel_name"] = panel_name
                 candidates.append(inbound_to_candidate(inbound, host))
         else:
