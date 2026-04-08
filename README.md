@@ -11,7 +11,7 @@
 ### 稳定版
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/main/install.sh | bash
+curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh | bash
 ```
 
 安装完成后，直接运行：
@@ -23,13 +23,19 @@ xboard-nodes
 ### 直接进入采集模式
 
 ```bash
-xboard-nodes --mode probe
+xboard-nodes --mode export
 ```
 
-### 直接进入导入模式
+### 直接进入上传模式
 
 ```bash
-xboard-nodes --mode import
+xboard-nodes --mode upload
+```
+
+### 直接进入创建新节点模式
+
+```bash
+xboard-nodes --mode create
 ```
 
 ### 已安装后的升级
@@ -62,7 +68,7 @@ curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh 
 
 - `xboard_nodes.py`
   - 统一一键入口
-  - 菜单式选择“采集”或“导入”
+  - 菜单式选择“导出 / 上传 / 创建新的”
 
 - `run.sh`
   - Shell 快捷入口
@@ -93,9 +99,10 @@ bash run.sh
 运行后会出现菜单：
 
 ```text
-1. 采集本机节点并导出 JSON
-2. 导入 JSON 到 Xboard
-3. 退出
+1. 导出现有节点到 JSON
+2. 上传到 Xboard
+3. 创建新的节点 JSON
+4. 退出
 ```
 
 如果你已经执行过一键安装，推荐直接用：
@@ -106,9 +113,11 @@ xboard-nodes
 
 现在的默认交互是：
 
-- 采集完成后，会直接询问是否继续导入
-- 导入时会自动优先发现当前目录最新的 `*.nodes.json`
-- 只有找不到文件时，才需要手工输入路径
+- 导出完成后，会直接询问是否继续上传到 Xboard
+- 上传时会自动优先发现当前目录最新的 `*.nodes.json`
+- 第一次上传会提示填写 Xboard SSH 和数据库信息
+- 这些信息可以保存为默认值，后面尽量少重复输入
+- 创建新的节点会直接跳过 `x-ui / 3x-ui` 检测，进入手工创建向导
 
 ### 节点服务器上
 
@@ -116,17 +125,23 @@ xboard-nodes
 
 - 自动检测 `x-ui / 3x-ui`
 - 逐条确认是否导出
-- 没有面板时进入手工建节点模式
 - 最后生成 `*.nodes.json`
+- 可直接继续上传到 Xboard
 
-### Xboard 服务器上
+选择 `3`：
+
+- 直接进入手工建节点模式
+- 适合空机或你想新建节点时使用
+
+### 上传到 Xboard
 
 选择 `2`：
 
-- 先让你填写数据库连接信息
-- 先自动执行 `dry-run`
-- 展示导入计划和 SQL
-- 你确认后，再自动执行 `--apply`
+- 自动找到当前目录最新的 `*.nodes.json`
+- 使用 `ssh/scp` 上传到你的 Xboard 服务器
+- 远端自动安装或更新 `xboard-node-tools`
+- 远端先执行 `dry-run`
+- 你确认后，再执行 `--apply`
 
 ## 旧方式
 
@@ -173,23 +188,21 @@ python3 xboard_import.py hk-01.nodes.json \
 ### 已有 3x-ui / x-ui
 
 1. 登录服务器
-2. 运行 `python3 xboard_nodes.py`
+2. 运行 `xboard-nodes`
 3. 选 `1`
 4. 逐条确认已有入站
 5. 导出 JSON
-6. 到 Xboard 服务器再运行 `python3 xboard_nodes.py`
-7. 选 `2`
+6. 直接继续上传到 Xboard
 
 ### 全新空机
 
 1. 登录服务器
-2. 运行 `python3 xboard_nodes.py`
-3. 选 `1`
+2. 运行 `xboard-nodes`
+3. 选 `3`
 4. 进入手工创建节点
 5. 选择协议、端口、NAT 外部端口
 6. 导出 JSON
-7. 到 Xboard 服务器运行 `python3 xboard_nodes.py`
-8. 选 `2`
+7. 直接继续上传到 Xboard
 
 ## 参数说明
 
@@ -211,6 +224,10 @@ python3 node_probe.py --help
   - 非交互模式
   - 有面板时自动导出全部入站
   - 没有面板时直接退出
+
+- `--manual-only`
+  - 跳过 `x-ui / 3x-ui` 检测
+  - 直接进入手工创建模式
 
 ### `xboard_import.py`
 
@@ -245,15 +262,19 @@ python3 xboard_nodes.py --help
 - `--mode menu`
   - 默认菜单模式
 
-- `--mode probe`
-  - 直接进入采集流程
+- `--mode export`
+  - 直接进入导出现有节点流程
 
-- `--mode import`
-  - 直接进入导入流程
+- `--mode upload`
+  - 直接进入上传到 Xboard 流程
+
+- `--mode create`
+  - 直接进入手工创建新节点流程
 
 ## 默认行为
 
-- 导入目标表：`v2_server`
+- 上传目标默认是你保存过的 Xboard 配置
+- 远端导入目标表：`v2_server`
 - 默认按 `type + host + server_port` 查重
 - 默认把权限组写成 JSON 字符串数组
 - 默认 `show = 1`

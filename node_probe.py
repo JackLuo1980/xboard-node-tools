@@ -475,6 +475,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Export all detected inbounds without confirmation. If no inbounds are found, exit directly.",
     )
+    parser.add_argument(
+        "--manual-only",
+        action="store_true",
+        help="Skip panel detection and enter manual node creation flow directly.",
+    )
     return parser.parse_args()
 
 
@@ -483,7 +488,7 @@ def main() -> int:
     output_path = Path(args.output).expanduser().resolve()
     host = choose_host(args.host)
 
-    db_path, panel_name = find_existing_panel_db()
+    db_path, panel_name = (None, None) if args.manual_only else find_existing_panel_db()
     inbounds: list[dict[str, Any]] = []
     if db_path:
         inbounds = load_inbounds(db_path)
