@@ -274,7 +274,7 @@ def build_ssh_command(profile: dict[str, Any], remote_command: str, tty: bool = 
     command = command_prefix_for_profile(profile) + ["ssh", *ssh_common_options()]
     if tty:
         command.append("-t")
-    command.extend([ssh_target, "bash", "-lc", remote_command])
+    command.extend([ssh_target, f"bash -lc {shlex.quote(remote_command)}"])
     return command
 
 
