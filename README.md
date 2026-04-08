@@ -4,6 +4,8 @@
 
 这套工具专门为“不走集中 SSH、逐台登录服务器处理”的运维方式准备。
 
+现在已经提供统一的一键入口，不需要你自己分别记 `node_probe.py` 和 `xboard_import.py` 的执行步骤。
+
 ## 功能
 
 - 自动检测本机 `x-ui / 3x-ui`
@@ -24,10 +26,60 @@
   - Xboard 服务器本机运行
   - 负责预览和导入节点
 
+- `xboard_nodes.py`
+  - 统一一键入口
+  - 菜单式选择“采集”或“导入”
+
+- `run.sh`
+  - Shell 快捷入口
+  - 等价于执行 `python3 xboard_nodes.py`
+
 - `examples/sample.nodes.json`
   - 导出格式示例
 
-## 使用方式
+## 一键用法
+
+### 推荐方式
+
+```bash
+python3 xboard_nodes.py
+```
+
+或者：
+
+```bash
+bash run.sh
+```
+
+运行后会出现菜单：
+
+```text
+1. 采集本机节点并导出 JSON
+2. 导入 JSON 到 Xboard
+3. 退出
+```
+
+### 节点服务器上
+
+选择 `1`：
+
+- 自动检测 `x-ui / 3x-ui`
+- 逐条确认是否导出
+- 没有面板时进入手工建节点模式
+- 最后生成 `*.nodes.json`
+
+### Xboard 服务器上
+
+选择 `2`：
+
+- 先让你填写数据库连接信息
+- 先自动执行 `dry-run`
+- 展示导入计划和 SQL
+- 你确认后，再自动执行 `--apply`
+
+## 旧方式
+
+如果你想继续单独调用底层脚本，也保留支持。
 
 ### 1. 在节点服务器本机采集
 
@@ -70,19 +122,23 @@ python3 xboard_import.py hk-01.nodes.json \
 ### 已有 3x-ui / x-ui
 
 1. 登录服务器
-2. 运行 `node_probe.py`
-3. 逐条确认已有入站
-4. 导出 JSON
-5. 到 Xboard 服务器运行 `xboard_import.py`
+2. 运行 `python3 xboard_nodes.py`
+3. 选 `1`
+4. 逐条确认已有入站
+5. 导出 JSON
+6. 到 Xboard 服务器再运行 `python3 xboard_nodes.py`
+7. 选 `2`
 
 ### 全新空机
 
 1. 登录服务器
-2. 运行 `node_probe.py`
-3. 选择手工创建节点
-4. 选择协议、端口、NAT 外部端口
-5. 导出 JSON
-6. 到 Xboard 服务器导入
+2. 运行 `python3 xboard_nodes.py`
+3. 选 `1`
+4. 进入手工创建节点
+5. 选择协议、端口、NAT 外部端口
+6. 导出 JSON
+7. 到 Xboard 服务器运行 `python3 xboard_nodes.py`
+8. 选 `2`
 
 ## 参数说明
 
@@ -126,6 +182,23 @@ python3 xboard_import.py --help
 
 - `--force-insert`
   - 不做查重，直接插入
+
+### `xboard_nodes.py`
+
+```bash
+python3 xboard_nodes.py --help
+```
+
+主要参数：
+
+- `--mode menu`
+  - 默认菜单模式
+
+- `--mode probe`
+  - 直接进入采集流程
+
+- `--mode import`
+  - 直接进入导入流程
 
 ## 默认行为
 
