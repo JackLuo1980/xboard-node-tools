@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 import ipaddress
+import random
 import secrets
 import shutil
 import socket
@@ -29,6 +30,8 @@ from typing import Any
 
 DEFAULT_OUTPUT_NAME = "xboard-node-export.json"
 DEFAULT_GROUP_NAMES = ["vip1", "vip2", "vip3"]
+DEFAULT_PROTOCOL = "vless"
+DEFAULT_NETWORK = "tcp"
 REALITY_DEST_CANDIDATES = [
     "www.amazon.com",
     "www.apple.com",
@@ -84,6 +87,40 @@ def normalize_protocol(protocol: str) -> str:
         "ss": "shadowsocks",
     }
     return aliases.get(value, value)
+
+
+def random_port() -> int:
+    return random.randint(20000, 50000)
+
+
+def pick_available_port(excluded_ports: set[int] | None = None) -> int:
+    excluded = set(excluded_ports or set())
+    for _ in range(256):
+        port = random_port()
+        if port in excluded:
+            continue
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind(("", port))
+            except OSError:
+                continue
+        return port
+    for port in range(20000, 50001):
+        if port in excluded:
+            continue
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind(("", port))
+            except OSError:
+                continue
+        return port
+    for _ in range(16):
+        port = random_port()
+        if port not in excluded:
+            return port
+    raise RuntimeError("无法找到可用端口，请稍后重试。")
 
 
 def choose_host(override: str | None) -> str:
@@ -325,16 +362,69 @@ def build_network_settings_from_inbound(
     return result
 
 
+def build_auto_network_settings(
+    protocol: str,
+    *,
+    security: str = "",
+    network: str = DEFAULT_NETWORK,
+) -> dict[str, Any]:
+    normalized_protocol = normalize_protocol(protocol)
+    normalized_security = security.lower().strip()
+    settings: dict[str, Any] = {
+        "network": network or DEFAULT_NETWORK,
+        "security": normalized_security,
+    }
+
+    if normalized_protocol in {"vless", "vmess"}:
+        settings["uuid"] = str(uuid.uuid4())
+        if normalized_protocol == "vless":
+            settings["flow"] = "xtls-rprx-vision"
+            if normalized_security == "reality":
+                reality_server_name = secrets.choice(REALITY_DEST_CANDIDATES)
+                private_key, public_key = reality_keypair_from_local_tools()
+                settings.update(
+                    {
+                        "reality_server_name": reality_server_name,
+                        "reality_dest": f"{reality_server_name}:443",
+                        "reality_private_key": private_key,
+                        "reality_public_key": public_key,
+                        "reality_short_id": secrets.token_hex(4),
+                    }
+                )
+        else:
+            settings["alter_id"] = 0
+
+    if normalized_protocol == "trojan":
+        settings["password"] = secrets.token_urlsafe(16)
+
+    if normalized_protocol == "shadowsocks":
+        settings["method"] = "aes-256-gcm"
+        settings["password"] = secrets.token_urlsafe(16)
+
+    if normalized_protocol == "hysteria2":
+        settings["password"] = secrets.token_urlsafe(16)
+
+    return settings
+
+
 def inbound_to_candidate(inbound: dict[str, Any], host: str) -> dict[str, Any]:
     protocol = normalize_protocol(inbound["protocol"])
-    port = int(inbound["port"])
-    network_settings = build_network_settings_from_inbound(
+    current_port = int(inbound["port"])
+    current_settings = build_network_settings_from_inbound(
         protocol=protocol,
         stream_settings=inbound["stream_settings"],
         settings=inbound["settings"],
     )
-    name = inbound["remark"] or f"{socket.gethostname()}-{protocol}-{port}"
-    tags = ["imported"]
+    security = current_settings.get("security") or ""
+    network = current_settings.get("network") or DEFAULT_NETWORK
+    cloned_port = pick_available_port({current_port})
+    network_settings = build_auto_network_settings(
+        protocol,
+        security=security,
+        network=network,
+    )
+    name = inbound["remark"] or f"{socket.gethostname()}-{protocol}-{current_port}"
+    tags = ["cloned", "parallel-new"]
     if "3x" in (inbound.get("panel_name") or ""):
         tags.append("3x-ui")
     else:
@@ -345,9 +435,9 @@ def inbound_to_candidate(inbound: dict[str, Any], host: str) -> dict[str, Any]:
         "protocol": protocol,
         "type": protocol,
         "host": host,
-        "listen_port": port,
-        "server_port": port,
-        "network": network_settings.get("network") or "tcp",
+        "listen_port": cloned_port,
+        "server_port": cloned_port,
+        "network": network_settings.get("network") or DEFAULT_NETWORK,
         "network_settings": network_settings,
         "show": True,
         "status": 1,
@@ -357,10 +447,12 @@ def inbound_to_candidate(inbound: dict[str, Any], host: str) -> dict[str, Any]:
         "route_names": [],
         "tags": tags,
         "source": {
-            "kind": "panel-inbound",
+            "kind": "panel-inbound-clone",
             "inbound_id": inbound["id"],
             "enabled": inbound["enable"],
             "client_count": inbound["client_count"],
+            "original_name": name,
+            "original_port": current_port,
         },
     }
 
@@ -368,51 +460,19 @@ def inbound_to_candidate(inbound: dict[str, Any], host: str) -> dict[str, Any]:
 def create_manual_candidate(host: str) -> dict[str, Any]:
     protocol = normalize_protocol(
         prompt_text(
-            "节点类型 (vless/vmess/trojan/shadowsocks/hysteria2)",
-            "vless",
+            "节点协议 (vless/vmess/trojan/shadowsocks/hysteria2)",
+            DEFAULT_PROTOCOL,
         )
     )
-    port = prompt_int("监听端口", 443)
-    server_port = prompt_int("面板展示端口/NAT外部端口", port)
-    name = prompt_text("节点名称", f"{socket.gethostname()}-{protocol}-{server_port}")
-    network = prompt_text("传输层网络", "tcp").lower()
-
-    network_settings: dict[str, Any] = {
-        "network": network,
-        "security": "",
-    }
-
-    if protocol in {"vless", "vmess"}:
-        network_settings["uuid"] = str(uuid.uuid4())
-        if protocol == "vless":
-            network_settings["flow"] = "xtls-rprx-vision"
-            if prompt_yes_no("是否启用 Reality", True):
-                network_settings["security"] = "reality"
-                reality_dest = secrets.choice(REALITY_DEST_CANDIDATES)
-                network_settings["reality_server_name"] = prompt_text(
-                    "Reality 域名",
-                    reality_dest,
-                )
-                network_settings["reality_dest"] = prompt_text(
-                    "Reality 目标",
-                    f"{network_settings['reality_server_name']}:443",
-                )
-                private_key, public_key = reality_keypair_from_local_tools()
-                network_settings["reality_private_key"] = private_key
-                network_settings["reality_public_key"] = public_key
-                network_settings["reality_short_id"] = secrets.token_hex(4)
-        else:
-            network_settings["alter_id"] = 0
-
-    if protocol == "trojan":
-        network_settings["password"] = secrets.token_urlsafe(16)
-
-    if protocol == "shadowsocks":
-        network_settings["method"] = prompt_text("加密方法", "aes-256-gcm")
-        network_settings["password"] = secrets.token_urlsafe(16)
-
-    if protocol == "hysteria2":
-        network_settings["password"] = secrets.token_urlsafe(16)
+    name = prompt_text("节点名称", f"{socket.gethostname()}-{protocol}")
+    port = pick_available_port()
+    security = "reality" if protocol == "vless" else ""
+    network_settings = build_auto_network_settings(
+        protocol,
+        security=security,
+        network=DEFAULT_NETWORK,
+    )
+    server_port = port
 
     return {
         "selected": True,
@@ -422,7 +482,7 @@ def create_manual_candidate(host: str) -> dict[str, Any]:
         "host": host,
         "listen_port": port,
         "server_port": server_port,
-        "network": network,
+        "network": network_settings.get("network") or DEFAULT_NETWORK,
         "network_settings": network_settings,
         "show": True,
         "status": 1,
@@ -450,21 +510,30 @@ def choose_candidates_from_inbounds(
         print()
         print(f"发现入站: {candidate['name']}")
         print(f"  类型: {candidate['protocol']}")
-        print(f"  端口: {candidate['server_port']}")
+        print(f"  原端口: {candidate['source']['original_port']}")
+        print(f"  新端口: {candidate['server_port']}")
         print(f"  网络: {candidate['network']}")
         if network_settings.get("security") == "reality":
             print(f"  Reality: {network_settings.get('reality_server_name') or network_settings.get('reality_dest')}")
-        if prompt_yes_no("导出这条节点", True):
-            candidate["name"] = prompt_text("节点名称", candidate["name"])
-            candidate["server_port"] = prompt_int("Xboard 展示端口", candidate["server_port"])
-            candidate["host"] = prompt_text("节点地址", candidate["host"])
-            candidate["group_names"] = [
-                item.strip()
-                for item in prompt_text("权限组(逗号分隔)", ",".join(DEFAULT_GROUP_NAMES)).split(",")
-                if item.strip()
-            ]
+        print("  说明: 保留原节点名称，自动新建一条不冲突的新节点。")
+        if prompt_yes_no("使用这条同名新节点", True):
             chosen.append(candidate)
     return chosen
+
+
+def print_candidate_summary(candidates: list[dict[str, Any]]) -> None:
+    print()
+    print("导出预览:")
+    for index, candidate in enumerate(candidates, start=1):
+        source = candidate.get("source") or {}
+        source_kind = source.get("kind") or "unknown"
+        extra = ""
+        if source_kind == "panel-inbound-clone":
+            extra = f" 原端口 {source.get('original_port')} -> 新端口 {candidate.get('server_port')}"
+        print(
+            f"  {index}. {candidate['name']} | {candidate['protocol']} | "
+            f"{candidate['host']}:{candidate['server_port']} | {source_kind}{extra}"
+        )
 
 
 def build_export_payload(
@@ -548,6 +617,7 @@ def main() -> int:
         print("没有待导出的节点，已退出。", file=sys.stderr)
         return 1
 
+    print_candidate_summary(candidates)
     payload = build_export_payload(output_path, host, panel_name, db_path, candidates)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
