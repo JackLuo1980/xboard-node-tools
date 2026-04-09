@@ -7,6 +7,7 @@ NODE_ID_DEFAULT=""
 CONFIG_PATH="/etc/XrayR/config.yml"
 REPO_API_URL="https://api.github.com/repos/XrayR-project/XrayR/releases/latest"
 RELEASE_BASE_URL="https://github.com/XrayR-project/XrayR/releases/download"
+MIRROR_BASE_URL="https://ghproxy.com/https://github.com/XrayR-project/XrayR/releases/download"
 SERVICE_PATH="/etc/systemd/system/XrayR.service"
 INSTALL_DIR="/usr/local/XrayR"
 
@@ -53,7 +54,9 @@ install_xrayr() {
   local version="$1"
   local arch="$2"
   local zip_path="${INSTALL_DIR}/XrayR-linux.zip"
-  local url="${RELEASE_BASE_URL}/${version}/XrayR-linux-${arch}.zip"
+  local primary_url="${RELEASE_BASE_URL}/${version}/XrayR-linux-${arch}.zip"
+  local mirror_url="${MIRROR_BASE_URL}/${version}/XrayR-linux-${arch}.zip"
+  local candidates=("$primary_url" "$mirror_url")
 
   log "==> 安装 XrayR"
   log "版本: ${version}"
@@ -62,7 +65,26 @@ install_xrayr() {
   rm -rf "$INSTALL_DIR"
   mkdir -p "$INSTALL_DIR"
 
-  curl -fsSL -o "$zip_path" "$url"
+  local success=0
+  for url in "${candidates[@]}"; do
+    rm -f "$zip_path"
+    log "==> 下载: $url"
+    if curl -fL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 -o "$zip_path" "$url"; then
+      if unzip -t "$zip_path" >/dev/null 2>&1; then
+        success=1
+        break
+      fi
+      log "下载包校验失败，准备重试下一来源。"
+    else
+      log "下载失败，准备重试下一来源。"
+    fi
+  done
+
+  if [[ "$success" -ne 1 ]]; then
+    log "XrayR 下载失败：所有来源都不可用。"
+    exit 1
+  fi
+
   extract_zip "$zip_path"
   rm -f "$zip_path"
 
