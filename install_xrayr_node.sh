@@ -56,7 +56,13 @@ install_xrayr() {
   local zip_path="${INSTALL_DIR}/XrayR-linux.zip"
   local primary_url="${RELEASE_BASE_URL}/${version}/XrayR-linux-${arch}.zip"
   local mirror_url="${MIRROR_BASE_URL}/${version}/XrayR-linux-${arch}.zip"
-  local candidates=("$primary_url" "$mirror_url")
+  local candidates=()
+  if [[ -n "${XRAYR_DOWNLOAD_URL:-}" ]]; then
+    candidates+=("${XRAYR_DOWNLOAD_URL}")
+  fi
+  candidates+=("$mirror_url" "$primary_url")
+  local speed_time="${XRAYR_DOWNLOAD_SPEED_TIME:-20}"
+  local speed_limit="${XRAYR_DOWNLOAD_SPEED_LIMIT:-32768}"
 
   log "==> 安装 XrayR"
   log "版本: ${version}"
@@ -69,7 +75,7 @@ install_xrayr() {
   for url in "${candidates[@]}"; do
     rm -f "$zip_path"
     log "==> 下载: $url"
-    if curl -fL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 -o "$zip_path" "$url"; then
+    if curl -fL --retry 3 --retry-all-errors --connect-timeout 15 --speed-time "$speed_time" --speed-limit "$speed_limit" --max-time 1200 -o "$zip_path" "$url"; then
       if unzip -t "$zip_path" >/dev/null 2>&1; then
         success=1
         break
