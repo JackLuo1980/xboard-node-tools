@@ -25,6 +25,12 @@
 curl -fsSL https://github.com/JackLuo1980/xboard-node-tools/raw/main/install.sh | bash
 ```
 
+如果你遇到 GitHub raw 缓存问题，可以直接用固定版本号的地址：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/a47fd42/install_xrayr_node.sh | bash
+```
+
 ### XrayR 单机安装
 
 如果你要在 VPS 上直接安装 `XrayR` 并写入固定模板，可以直接用这个入口脚本：
