@@ -49,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/main/
 `NodeID` 不能为空；脚本不会替你猜默认值。
 
 脚本运行前只需要系统里有 `curl` 和 `unzip`。
-此外，安装完成后要用 `systemd` 启动服务；如果机器没有 `systemctl`，脚本会提示你手动启动。
+此外，安装完成后会自动识别 `systemd` 或 OpenRC；如果两者都没有，脚本会提示你手动启动。
 
 如果 GitHub 直连很慢，可以用环境变量指定更快的下载源：
 

@@ -9,6 +9,7 @@ REPO_API_URL="https://api.github.com/repos/XrayR-project/XrayR/releases/latest"
 RELEASE_BASE_URL="https://github.com/XrayR-project/XrayR/releases/download"
 MIRROR_BASE_URL="https://ghproxy.com/https://github.com/XrayR-project/XrayR/releases/download"
 SERVICE_PATH="/etc/systemd/system/XrayR.service"
+OPENRC_PATH="/etc/init.d/XrayR"
 INSTALL_DIR="/usr/local/XrayR"
 
 log() {
@@ -98,8 +99,9 @@ install_xrayr() {
     chmod +x "${INSTALL_DIR}/XrayR"
   fi
 
-  mkdir -p "$(dirname "$SERVICE_PATH")"
-  cat >"$SERVICE_PATH" <<EOF
+  if command -v systemctl >/dev/null 2>&1; then
+    mkdir -p "$(dirname "$SERVICE_PATH")"
+    cat >"$SERVICE_PATH" <<EOF
 [Unit]
 Description=XrayR Service
 After=network.target nss-lookup.target
@@ -115,13 +117,29 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-
-  if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     systemctl enable XrayR >/dev/null 2>&1 || true
+  elif command -v rc-service >/dev/null 2>&1; then
+    mkdir -p "$(dirname "$OPENRC_PATH")"
+    cat >"$OPENRC_PATH" <<'EOF'
+#!/sbin/openrc-run
+# shellcheck shell=sh
+
+name="XrayR"
+description="XrayR Service"
+command="/usr/local/XrayR/XrayR"
+command_args="--config /etc/XrayR/config.yml"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+depend() {
+  need net
+}
+EOF
+    chmod +x "$OPENRC_PATH"
+    rc-update add XrayR default >/dev/null 2>&1 || true
   else
-    log "检测到当前系统没有 systemctl，已写入服务文件，但无法自动注册为 systemd 服务。"
-    log "请确认当前系统是 systemd 发行版后再继续启动。"
+    log "检测到当前系统既没有 systemctl，也没有 OpenRC。"
+    log "已写入二进制和配置，但无法自动注册服务。"
   fi
 }
 
@@ -247,14 +265,18 @@ main() {
   log "==> 重启 XrayR"
   if command -v systemctl >/dev/null 2>&1; then
     systemctl restart XrayR
+  elif command -v rc-service >/dev/null 2>&1; then
+    rc-service XrayR restart
   else
-    log "未检测到 systemctl，跳过自动重启。"
+    log "未检测到 systemd/OpenRC，跳过自动重启。"
     log "请手动启动 ${INSTALL_DIR}/XrayR --config ${CONFIG_PATH}"
   fi
 
   log "==> 当前状态"
   if command -v systemctl >/dev/null 2>&1; then
     systemctl status XrayR --no-pager || true
+  elif command -v rc-service >/dev/null 2>&1; then
+    rc-service XrayR status || true
   fi
   log "==> 端口监听"
   ss -lntp | grep -E ':23221|XrayR' || true
