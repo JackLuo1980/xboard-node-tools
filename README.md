@@ -39,6 +39,18 @@ curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/a47fd
 curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/main/install_xrayr_node.sh | bash
 ```
 
+如果想一次把 `NodeID` 带进去，可以这样：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/main/install_xrayr_node.sh | bash -s -- 12
+```
+
+或者：
+
+```bash
+NODE_ID=12 curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/main/install_xrayr_node.sh | bash
+```
+
 脚本会：
 
 - 安装官方 `XrayR`

@@ -202,16 +202,23 @@ main() {
   log "XrayR 一键安装脚本"
   log "ApiHost: ${API_HOST}"
   log "ApiKey : ${API_KEY}"
-  if [[ -r /dev/tty ]]; then
-    printf '请输入 NodeID: ' >/dev/tty
-    read -r input_node_id </dev/tty
-  else
-    printf '请输入 NodeID: '
-    read -r input_node_id
+
+  local input_node_id="${NODE_ID:-${1:-}}"
+  if [[ -z "$input_node_id" ]]; then
+    if [[ -r /dev/tty ]]; then
+      printf '请输入 NodeID: ' >/dev/tty
+      read -r input_node_id </dev/tty
+    else
+      printf '请输入 NodeID: '
+      read -r input_node_id
+    fi
   fi
+
   local node_id="${input_node_id:-}"
   if [[ -z "$node_id" ]]; then
     log "NodeID 为必填项，不能为空。"
+    log "你可以用：NODE_ID=12 curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/2cbb56f/install_xrayr_node.sh | bash"
+    log "或者：curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/2cbb56f/install_xrayr_node.sh | bash -s -- 12"
     exit 1
   fi
 
