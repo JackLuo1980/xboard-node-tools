@@ -42,6 +42,8 @@ curl -fsSL https://raw.githubusercontent.com/JackLuo1980/xboard-node-tools/main/
 
 `NodeID` 不能为空；脚本不会替你猜默认值。
 
+脚本运行前只需要系统里有 `curl` 和 `unzip`。
+
 ### 预置默认 Xboard 并安装后自动运行
 
 安装脚本支持通过环境变量预置默认 Xboard 配置。这样安装完成后，`上传到 Xboard` 会直接复用这些值，不再反复询问。

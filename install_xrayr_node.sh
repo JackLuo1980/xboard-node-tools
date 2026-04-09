@@ -25,36 +25,28 @@ ensure_tools() {
   local missing=()
 
   command -v curl >/dev/null 2>&1 || missing+=("curl")
-  command -v python3 >/dev/null 2>&1 || missing+=("python3")
+  command -v unzip >/dev/null 2>&1 || missing+=("unzip")
 
   if [[ "${#missing[@]}" -ne 0 ]]; then
     log "缺少必要工具: ${missing[*]}"
-    log "请先安装 curl 和 python3，再重新运行脚本。"
+    log "请先安装 curl 和 unzip，再重新运行脚本。"
     exit 1
   fi
 }
 
 download_latest_version() {
-  curl -fsSL "$REPO_API_URL" | python3 -c 'import json,sys; data=json.load(sys.stdin); tag=data.get("tag_name",""); raise SystemExit("无法获取 XrayR 最新版本号") if not tag else print(tag)'
+  local tag
+  tag="$(curl -fsSL "$REPO_API_URL" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+  if [[ -z "$tag" ]]; then
+    log "无法获取 XrayR 最新版本号"
+    exit 1
+  fi
+  printf '%s\n' "$tag"
 }
 
 extract_zip() {
   local zip_path="$1"
-  if command -v unzip >/dev/null 2>&1; then
-    unzip -oq "$zip_path" -d "$INSTALL_DIR"
-    return
-  fi
-
-  python3 - "$zip_path" "$INSTALL_DIR" <<'PY'
-import pathlib
-import sys
-import zipfile
-
-zip_path = pathlib.Path(sys.argv[1])
-install_dir = pathlib.Path(sys.argv[2])
-with zipfile.ZipFile(zip_path) as zf:
-    zf.extractall(install_dir)
-PY
+  unzip -oq "$zip_path" -d "$INSTALL_DIR"
 }
 
 install_xrayr() {
