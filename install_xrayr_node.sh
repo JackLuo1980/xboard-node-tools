@@ -98,6 +98,7 @@ install_xrayr() {
     chmod +x "${INSTALL_DIR}/XrayR"
   fi
 
+  mkdir -p "$(dirname "$SERVICE_PATH")"
   cat >"$SERVICE_PATH" <<EOF
 [Unit]
 Description=XrayR Service
@@ -113,10 +114,15 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-EOF
+  EOF
 
-  systemctl daemon-reload
-  systemctl enable XrayR >/dev/null 2>&1 || true
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    systemctl enable XrayR >/dev/null 2>&1 || true
+  else
+    log "检测到当前系统没有 systemctl，已写入服务文件，但无法自动注册为 systemd 服务。"
+    log "请确认当前系统是 systemd 发行版后再继续启动。"
+  fi
 }
 
 write_config() {
@@ -239,10 +245,17 @@ main() {
   write_config "$node_id"
 
   log "==> 重启 XrayR"
-  systemctl restart XrayR
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl restart XrayR
+  else
+    log "未检测到 systemctl，跳过自动重启。"
+    log "请手动启动 ${INSTALL_DIR}/XrayR --config ${CONFIG_PATH}"
+  fi
 
   log "==> 当前状态"
-  systemctl status XrayR --no-pager || true
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl status XrayR --no-pager || true
+  fi
   log "==> 端口监听"
   ss -lntp | grep -E ':23221|XrayR' || true
   log "完成。"
