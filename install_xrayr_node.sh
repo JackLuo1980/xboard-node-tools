@@ -5,7 +5,10 @@ API_HOST="https://x.asli.eu.org"
 API_KEY="umon3ErJKnqQbgB4aJAw"
 NODE_ID_DEFAULT=""
 CONFIG_PATH="/etc/XrayR/config.yml"
-INSTALL_URL="https://raw.githubusercontent.com/XrayR-project/XrayR-release/master/install.sh"
+REPO_API_URL="https://api.github.com/repos/XrayR-project/XrayR/releases/latest"
+RELEASE_BASE_URL="https://github.com/XrayR-project/XrayR/releases/download"
+SERVICE_PATH="/etc/systemd/system/XrayR.service"
+INSTALL_DIR="/usr/local/XrayR"
 
 log() {
   printf '%s\n' "$*"
@@ -18,30 +21,82 @@ need_root() {
   fi
 }
 
-install_prereqs() {
-  if command -v curl >/dev/null 2>&1 && command -v wget >/dev/null 2>&1 && command -v tar >/dev/null 2>&1; then
-    return
-  fi
+ensure_tools() {
+  local missing=()
 
-  if command -v apt-get >/dev/null 2>&1; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -y
-    apt-get install -y curl wget tar gzip ca-certificates
-  elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y curl wget tar gzip ca-certificates
-  elif command -v yum >/dev/null 2>&1; then
-    yum install -y curl wget tar gzip ca-certificates
-  elif command -v apk >/dev/null 2>&1; then
-    apk add --no-cache curl wget tar gzip ca-certificates
-  else
-    log "未找到可用的包管理器，无法自动安装依赖。"
+  command -v curl >/dev/null 2>&1 || missing+=("curl")
+  command -v python3 >/dev/null 2>&1 || missing+=("python3")
+
+  if [[ "${#missing[@]}" -ne 0 ]]; then
+    log "缺少必要工具: ${missing[*]}"
+    log "请先安装 curl 和 python3，再重新运行脚本。"
     exit 1
   fi
 }
 
+download_latest_version() {
+  curl -fsSL "$REPO_API_URL" | python3 -c 'import json,sys; data=json.load(sys.stdin); tag=data.get("tag_name",""); raise SystemExit("无法获取 XrayR 最新版本号") if not tag else print(tag)'
+}
+
+extract_zip() {
+  local zip_path="$1"
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -oq "$zip_path" -d "$INSTALL_DIR"
+    return
+  fi
+
+  python3 - "$zip_path" "$INSTALL_DIR" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+zip_path = pathlib.Path(sys.argv[1])
+install_dir = pathlib.Path(sys.argv[2])
+with zipfile.ZipFile(zip_path) as zf:
+    zf.extractall(install_dir)
+PY
+}
+
 install_xrayr() {
+  local version="$1"
+  local arch="$2"
+  local zip_path="${INSTALL_DIR}/XrayR-linux.zip"
+  local url="${RELEASE_BASE_URL}/${version}/XrayR-linux-${arch}.zip"
+
   log "==> 安装 XrayR"
-  curl -fsSL "$INSTALL_URL" | bash
+  log "版本: ${version}"
+  log "架构: ${arch}"
+
+  rm -rf "$INSTALL_DIR"
+  mkdir -p "$INSTALL_DIR"
+
+  curl -fsSL -o "$zip_path" "$url"
+  extract_zip "$zip_path"
+  rm -f "$zip_path"
+
+  if [[ ! -x "${INSTALL_DIR}/XrayR" ]]; then
+    chmod +x "${INSTALL_DIR}/XrayR"
+  fi
+
+  cat >"$SERVICE_PATH" <<EOF
+[Unit]
+Description=XrayR Service
+After=network.target nss-lookup.target
+
+[Service]
+Type=simple
+User=root
+LimitNOFILE=1048576
+ExecStart=${INSTALL_DIR}/XrayR --config /etc/XrayR/config.yml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable XrayR >/dev/null 2>&1 || true
 }
 
 write_config() {
@@ -128,7 +183,7 @@ EOF
 
 main() {
   need_root
-  install_prereqs
+  ensure_tools
 
   log "XrayR 一键安装脚本"
   log "ApiHost: ${API_HOST}"
@@ -146,11 +201,21 @@ main() {
     exit 1
   fi
 
-  install_xrayr
+  local version
+  version="$(download_latest_version)"
+  local arch
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64|amd64|x64) arch="64" ;;
+    aarch64|arm64) arch="arm64-v8a" ;;
+    s390x) arch="s390x" ;;
+    *) arch="64" ;;
+  esac
+
+  install_xrayr "$version" "$arch"
   write_config "$node_id"
 
   log "==> 重启 XrayR"
-  systemctl enable XrayR >/dev/null 2>&1 || true
   systemctl restart XrayR
 
   log "==> 当前状态"
